@@ -7,16 +7,28 @@ description: Use when adding a new external integration (REST API client or brow
 
 Two proven patterns from this server's e-comportal tools
 (`vk_ads_api.py`, `yandex_business.py`, `yandex_direct.py`,
-`vk_community.py`, `dzen.py`) for the two shapes an integration usually
-takes. Pick the one that matches; both share the same underlying rule:
-**mutating/public actions always need the owner's explicit "подтверждаю"
-in a separate message for that specific action** — everything below is
-just how to enforce that in code, not a replacement for it.
+`vk_community.py`, `dzen.py`, `wp.py`) for the two shapes an integration
+usually takes. Pick the one that matches; both share the same underlying
+rule: **mutating/public actions always need the owner's explicit
+"подтверждаю" in a separate message for that specific action** —
+everything below is just how to enforce that in code, not a replacement
+for it.
+
+**Audit existing integrations too, not just new ones.** `wp.py` existed
+for a while with only a prompt-level "ask first" rule and no technical
+gate on publish/delete — found 2026-08-08 by explicitly comparing the
+project against this skill, not by something going wrong. When you touch
+an integration for another reason, it's worth a quick check: does every
+mutating/public method actually call the confirm check, or does one just
+have the docs/system-prompt promise? A method that reads state before
+mutating (`update_post` here checks the post's *current* status, not just
+the status being set — editing an already-published post's content is
+just as public as a fresh publish) is an easy one to miss.
 
 ## Shape 1 — official REST API (has real write endpoints)
 
 Copy this exact pattern (from `vk_ads_api.py`, reused in
-`yandex_direct.py`/`vk_community.py`):
+`yandex_direct.py`/`vk_community.py`/`wp.py`):
 
 ```python
 CONFIRM_PHRASE = "подтверждаю"
