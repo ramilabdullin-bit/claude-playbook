@@ -23,7 +23,20 @@ skill is original, not adapted from anywhere.
      коммерческая концессия (the Russian legal form of a franchise, ГК РФ
      гл. 54) granting brand rights — without it, the brand-use half of the
      deal has no legal footing. The software/SOP-only half doesn't need
-     this.
+     this. Check two things beyond "is it registered," both found to
+     matter in practice (2026-08-23): (a) **registered МКТУ classes must
+     cover the actual franchised business**, not just the company's
+     original business — a mark registered for class 35 (retail trade)
+     when the franchise is actually warehousing/fulfillment (class 39) or
+     software licensing (class 42) may not give real legal protection for
+     that use, even though nothing stops using the brand practically; (b)
+     **cross-check the right holder name against more than one source**
+     before naming a party in a contract — a third-party aggregator
+     (e.g. onlinepatent.ru) and a direct lookup can disagree on the
+     current right-holder entity (IP sometimes sits in a dedicated
+     holding company, transferred after initial registration); resolve
+     via the owner's lawyer or an official extract, don't pick one source
+     and move on.
    - Reference unit economics for the thing being franchised (revenue
      driver, fixed costs, tax regime of the unit) — needed to size the
      upfront fee and royalty so the deal is credible to a first-time
