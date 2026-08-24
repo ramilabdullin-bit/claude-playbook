@@ -21,6 +21,10 @@ The hook's `jq` command matches basename against, case-insensitive:
   anchored — deliberately broad since a false-positive here just means an
   extra confirmation, not a real block).
 - `token.*\.json` — `vk_ads_token.json`, etc.
+- `service.*account.*\.json` — Google Cloud service-account key files, e.g.
+  `google_service_account.json`.
+- `credentials.*\.json` — generic OAuth/API credential dumps, e.g.
+  `credentials.json`.
 
 It does NOT cover: `.pem`/`.key` files, arbitrary `*password*` or
 `*secret*` names, or non-`.json` token files — none of those exist on this
