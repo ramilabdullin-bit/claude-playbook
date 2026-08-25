@@ -6,11 +6,20 @@ description: Use when a new kind of credential/session file shows up on this ser
 # Global secret-file PreToolUse hook
 
 `/root/.claude/settings.json` has a `PreToolUse` hook on
-`Edit|Write|MultiEdit` that denies the tool call outright (not just warns)
-when the file's basename looks like a credential file. It applies to every
-project on this server, not per-project — the reasoning was: writing this
-once beats remembering to add per-project protection every time a new
+`Edit|Write|MultiEdit|Read` that denies the tool call outright (not just
+warns) when the file's basename looks like a credential file. It applies to
+every project on this server, not per-project — the reasoning was: writing
+this once beats remembering to add per-project protection every time a new
 project appears.
+
+`Read` was added 2026-08-25 (previously only `Edit|Write|MultiEdit`) —
+reading a whole `.env`/`cookies.json`/etc. via the `Read` tool puts its full
+content into the transcript same as writing would leak it out; the fix is to
+`grep "^VAR_NAME="` the specific value via `Bash` instead (grep via `Bash` is
+NOT covered by this hook — see "Known gaps" below). See also
+[[git-secret-scan]] for the complementary content-based git hook added the
+same day, and `permissions.deny` in the same `settings.json` for the
+`rm -rf`/`curl`+`export`/`wget` command-level denials added alongside it.
 
 ## Current coverage
 
@@ -31,19 +40,31 @@ It does NOT cover: `.pem`/`.key` files, arbitrary `*password*` or
 server yet. If one shows up, extend the jq filter rather than adding a
 second hook; keep the credential-file logic in one place.
 
+## Known gaps
+
+- Only fires on Claude's own `Edit`/`Write`/`MultiEdit`/`Read` tool calls —
+  a plain `cat .env`/`grep`/`head` through the `Bash` tool is NOT
+  intercepted (documented server-wide as
+  `feedback_bash_tool_cwd_read` in memory: the `Bash` tool can read
+  anything inside its cwd regardless of `--allowedTools` scoping). This
+  hook stops the polite/default path, not a deliberate `Bash`-based read.
+- Filename-based only — a real secret pasted into a normally-named file
+  (`config.py`) isn't caught here at all. See [[git-secret-scan]] for the
+  content-based complement (git `pre-commit`, catches by *value* not name).
+
 ## How to verify it's still active
 
 ```bash
-jq -e '.hooks.PreToolUse[] | select(.matcher == "Edit|Write|MultiEdit") | .hooks[] | select(.type == "command") | .command' /root/.claude/settings.json
+jq -e '.hooks.PreToolUse[] | select(.matcher == "Edit|Write|MultiEdit|Read") | .hooks[] | select(.type == "command") | .command' /root/.claude/settings.json
 ```
 Exit 0 + prints the command = still wired up. A broken/missing entry here
-silently means Edit/Write on `.env` etc. would go through unblocked — this
-is worth checking after any manual edit to `settings.json`.
+silently means Edit/Write/Read on `.env` etc. would go through unblocked —
+this is worth checking after any manual edit to `settings.json`.
 
 ## How to extend it (new pattern)
 
 1. Read `/root/.claude/settings.json`, find the `PreToolUse` →
-   `Edit|Write|MultiEdit` hook's `command`.
+   `Edit|Write|MultiEdit|Read` hook's `command`.
 2. Add one more `or ($base | test("<new-pattern>";"i"))` clause to the jq
    filter — same shape as the existing three.
 3. **Pipe-test before writing**, don't just edit and hope:
