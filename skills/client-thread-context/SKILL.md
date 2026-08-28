@@ -61,6 +61,24 @@ before the owner caught and deleted it:
    event had fired. Same root cause as the others: the reply agent only
    checks "is there a new inbound message", never "does this inbound
    message actually originate outside the system."
+6. **The fix for incident 3 needed a second fix — a narrow "already said
+   this" check isn't the same as "this reply still applies."** A client
+   asked something genuinely new after a decline ("can you recommend
+   someone else?"), not a repeat of "why" — the classifier correctly
+   flagged it as a real question the fact-sheet has no answer for. The
+   *first* attempt at fixing this fell through to the normal
+   pricing/questions pipeline whenever the canned text had already been
+   sent once — which built a fresh quote and asked qualifying questions
+   for an item that had already been declined, i.e. treated a dead deal
+   as still live. The actual fix short-circuits into the escalation path
+   directly (holding message to the client, real reason to the human),
+   bypassing the pricing pipeline entirely rather than falling through
+   into it. Lesson: when you special-case "don't just repeat the canned
+   text," check exactly what the *fallback* code path assumes about deal
+   state before routing into it — a path built for "this is a live,
+   answerable conversation" will misbehave the moment it's reached from
+   a dead-end (declined/closed) state, even though its own logic is
+   otherwise correct.
 
 ## The check
 
@@ -119,6 +137,12 @@ if not conn.get("asked_email") and not conn.get("owner_engaged"):
 # our own re-derived decision:
 def decline_or_followup(decline_text, followup_text, last_our_message):
     return followup_text if decline_text in last_our_message else decline_text
+
+# a genuinely new question after a dead-end (decline/close) state — route
+# STRAIGHT into escalation, don't fall through into the normal live-deal
+# pipeline (that pipeline will happily build a quote for a declined item):
+if is_repeat_after_decline and info.get("escalate_to_owner"):
+    return escalate_response(info, row_key)   # short-circuit, not a fallthrough
 ```
 
 ## Before calling it done
