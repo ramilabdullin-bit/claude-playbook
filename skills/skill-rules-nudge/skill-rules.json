@@ -1,0 +1,84 @@
+{
+  "skill-security-audit": {
+    "keywords": [
+      "github\\.com/.*skill", "awesome-claude-code", "third-party skill",
+      "vendor a skill", "vendor this skill", "install (this|a) skill",
+      "add (this|a) skill", "нов(ый|ую) skill", "постав(ь|ить) skill",
+      "скачал skill", "нашёл skill", "нашел skill"
+    ]
+  },
+  "destructive-command-gate": {
+    "keywords": [
+      "разрушительн(ая|ые|ых) команд", "destructive command",
+      "block.*(rm -rf|force.?push|drop table)", "гейт на команды"
+    ]
+  },
+  "confirm-gated-integration": {
+    "keywords": [
+      "нов(ый|ая|ое) интеграци", "new integration", "add a new bank",
+      "подключить.*(банк|счет|счёт)", "новый рекламный кабинет",
+      "new ad account", "подключить новую соцсеть"
+    ]
+  },
+  "onboard-new-project": {
+    "keywords": [
+      "нов(ый|ый) проект", "new project", "git init this",
+      "подготовь проект для клод", "set up claude code"
+    ]
+  },
+  "git-secret-scan": {
+    "keywords": [
+      "секрет.?скан", "protect against committing secrets",
+      "утёк.*секрет.*git", "leaked.*secret.*git"
+    ]
+  },
+  "learnings-md": {
+    "keywords": [
+      "куда записывать находки", "веди журнал по проекту",
+      "learnings\\.md", "запомни.*на будущее для этого проекта"
+    ]
+  },
+  "trim-claude-md": {
+    "keywords": [
+      "claude\\.md.*(too big|разросся|слишком большой)",
+      "clean up claude\\.md"
+    ]
+  },
+  "analyze-claude-session-cost": {
+    "keywords": [
+      "почему.*(дорого|дорогая сессия)", "why was this so expensive",
+      "проверь траты", "reduce cost", "почему бот падает",
+      "check bot reliability"
+    ]
+  },
+  "grant-bot-tool-access": {
+    "keywords": [
+      "bot needs (tool|subagent) access", "why can'?t the bot use skills",
+      "add subagent access to a bot"
+    ]
+  },
+  "telegram-bot-command-pattern": {
+    "keywords": [
+      "add a command to (the )?bot", "новая команда боту",
+      "добавь команду в бота"
+    ]
+  },
+  "marketplace-integration-pattern": {
+    "keywords": [
+      "add (ozon|wildberries|yandex market) (feedbacks|support|client)",
+      "новый маркетплейс", "как добавить маркетплейс"
+    ]
+  },
+  "using-git-worktrees": {
+    "keywords": [
+      "изолируй эту правку", "work.*separate branch.*without touching",
+      "parallel onboarding", "git worktree"
+    ]
+  },
+  "subagent-two-stage-review": {
+    "keywords": [
+      "review this before we ship", "второе мнение перед деплоем",
+      "проверь.*по спецификации.*по качеству"
+    ]
+  }
+}
