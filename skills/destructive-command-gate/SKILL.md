@@ -95,6 +95,36 @@ was pipe-tested against both a hand-built dangerous list and a
 hand-built safe list before writing anything — see below, do the same for
 any addition.
 
+**Second bug, found live in production use the same day** (not caught by
+the test suite above, because the test suite didn't include a *chained*
+command): the ANDed-clauses fix above checks `--force`/`-f` against the
+**whole `$cmd` string**, which is correct for a single command but wrong
+for a shell one-liner chaining several commands with `&&`/`;`/`|`. A real
+commit-and-push sequence —
+`git commit -F msg.txt && git push origin main && rm -f msg.txt` — got
+denied, because "contains `git push`" was true (in clause 2) and
+"contains a standalone `-f`" was *also* true (in clause 3's unrelated
+`rm -f`), and the AND was evaluated against the concatenated string, not
+per-clause. Fix: split `$cmd` on shell operators first, then require both
+conditions to hold **within the same clause**:
+```
+($cmd | [splits("&&|\\|\\||;|\\|")]) as $clauses |
+...
+or (any($clauses[]; (. | test("git\\s+push";"i"))
+  and ((. | test("--force\\b";"i")) or (. | test("(^|\\s)-f(\\s|$)")))))
+...
+```
+This only matters for patterns built as an AND of independent `test()`
+calls (only the git-push case, here) — the single self-contained regexes
+(`rm -rf`, `git reset --hard`, `DROP ...`) don't have this failure mode,
+since there's nothing to accidentally satisfy from an unrelated clause.
+**Lesson on top of the lesson above:** a fix verified against a
+comprehensive single-command test suite can still hide a bug that only
+shows up in a *chained* command — add at least a few `&&`/`;`-joined
+cases (both a real matching case split across clauses, and a real legit
+multi-command one-liner) to the test suite for any hook condition built
+from more than one `test()` call.
+
 ## How to verify it's still active
 
 ```bash

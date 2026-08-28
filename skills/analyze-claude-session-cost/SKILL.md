@@ -1,6 +1,6 @@
 ---
 name: analyze-claude-session-cost
-description: Use when a headless `claude -p` call (a bot, a cron job, any subscription-billed invocation) turned out expensive and you need to find out why — or as part of a standing duty to proactively audit task cost and cut it without being asked. Triggers on "why was this so expensive", "reduce cost", "проверь траты", "analyze spending", or when reviewing bot logs that show a high `cost=$` value.
+description: Use when a headless `claude -p` call (a bot, a cron job, any subscription-billed invocation) turned out expensive and you need to find out why, or when auditing a bot's logs for recurring errors/timeouts it's silently been eating — or as part of a standing duty to proactively audit task cost and reliability without being asked. Triggers on "why was this so expensive", "reduce cost", "проверь траты", "analyze spending", "почему бот падает", "check bot reliability", or when reviewing bot logs that show a high `cost=$` value or repeated ERROR/Traceback lines.
 ---
 
 # Diagnosing and cutting the cost of a Claude Code session
@@ -109,3 +109,46 @@ After applying a fix: syntax-check, restart the affected process, confirm
 clean startup, and write down in the project's CLAUDE.md *why* the change
 was made (which transcript, which pattern) — the next person diagnosing a
 cost spike should not have to re-derive this from scratch.
+
+## 5. Same pass, also scan for silent failure/latency patterns
+
+Added 2026-08-28 after an audit found a headless bot's background poller
+had been logging the same `403 Forbidden by consent` error every 5
+minutes for an unknown period (one account's Точка token had gone stale)
+— nobody noticed because nothing surfaces a *pattern* of errors, only
+each individual one scrolling past in `bot.log`. Cost auditing already
+means opening these same log/transcript files; checking for reliability
+issues in the same pass is nearly free and catches exactly this shape of
+problem, which a cost-only audit walks right past.
+
+```bash
+# Tally recurring ERROR/Traceback first-lines, most frequent first —
+# run for every headless bot's log on a routine audit, not just when
+# something is already known to be broken.
+grep -A1 'ERROR' bot.log | grep -v '^--$' | sort | uniq -c | sort -rn | head -20
+```
+
+What to do with what you find:
+- **A repeating identical error** (same account/endpoint/exception every
+  cycle) → almost always a stale credential, a changed API contract, or a
+  scope/consent that needs renewal on the provider's side — not a code
+  bug to silently patch around. Reproduce it once directly (a standalone
+  script hitting the same endpoint, same credential) to confirm the exact
+  cause before reporting it, same empirical-verification standard as any
+  other finding — don't guess from the error string alone.
+- **A repeating timeout** (`asyncio.TimeoutError`, "не ответил вовремя")
+  → check whether it's one specific slow operation (raise that operation's
+  own timeout) vs. a systemic issue (server under memory/CPU pressure —
+  cross-check `project_server_load_monitoring`-style resource logs from
+  the same window before assuming it's the remote API's fault).
+- **A pattern that only affects one account/company/customer out of
+  several structurally identical ones** → strong signal it's config/
+  credential-scoped, not a general code bug — compare that one's
+  credentials/permissions against a working sibling's rather than
+  re-reading the shared code path.
+
+This is a periodic-audit habit, not a one-shot script — there's no single
+tool that watches every bot's log for new error patterns automatically
+yet; until (if ever) that's built, treat "read recent logs for repeats"
+as a standing item whenever already asked to review a bot's health or
+cost, not something to wait for a specific complaint to trigger.
