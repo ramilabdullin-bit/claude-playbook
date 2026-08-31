@@ -12,10 +12,10 @@ the client themself — handled part of the conversation somewhere the
 agent's own log doesn't cover. The agent isn't wrong about what it sees;
 it's wrong about what it thinks is the *whole* conversation.
 
-Five real incidents from one session building `leads-agent/tools/kp.py` +
+Seven real incidents from sessions building `leads-agent/tools/kp.py` +
 `telegram-claude-bot/bot.py` (an autonomous email/Telegram KP-reply
-engine for a fulfillment business) — the last one reached a live customer
-before the owner caught and deleted it:
+engine for a fulfillment business) — several reached a live customer
+before being caught:
 
 1. **Pure acknowledgments got a full reply anyway.** A client wrote
    "Спасибо! Вернусь с ОС)" (thanks, will follow up) — the autonomous
@@ -80,6 +80,28 @@ before the owner caught and deleted it:
    a dead-end (declined/closed) state, even though its own logic is
    otherwise correct.
 
+7. **Incident 4 happened again, for real, on a near-closed deal — and
+   turned out to be partially observable after all.** A client had a full
+   negotiation (volumes, packaging questions, "the terms basically work
+   for me", asked for a call), continued by phone (unlogged), then
+   followed up days later — "any update?" The bot answered with the
+   scripted first-contact intro ("I'm an AI assistant... have you emailed
+   us before?"), because the flags that gate that script only reflect
+   what the bot itself logged, and a phone call sets none of them.
+   Incident 4 called the phone-call case unobservable and left the fix as
+   procedural. It's not fully unobservable: whatever caused the record to
+   progress — a phone call handled manually, a colleague's note, anything
+   — necessarily left a trace *somewhere else* in the record, even when
+   the triggering event itself has no text to log. Here, the record's own
+   status field had already moved off its fresh-row default days
+   earlier. Add that as a second, independent gate on the scripted
+   one-time step: not just "did *this system* do the thing that normally
+   marks this covered", but also "does the record's own status still say
+   *nothing has happened yet*." When a sweep of the *same* backlog batch
+   was run afterward, four more contacts turned up sitting in the
+   identical trap — same root cause, same fix, confirming this isn't a
+   one-off.
+
 ## The check
 
 Before wiring (or reviewing) any autonomous or semi-autonomous send path
@@ -103,13 +125,20 @@ button — ask, for the specific client/thread:
   before sending it again? If yes on repeat, branch to an explanation/
   follow-up variant instead of literal resend.
 - **Can a human have handled this outside any channel your code reads**
-  (phone, in person, handed off to a colleague)? You can't observe that
-  programmatically — the mitigation is procedural, not code: don't let
-  an autonomous path touch a real backlog thread for the first time
-  without a human confirming per-thread first (draft, show it, get a
-  yes), *especially* right after enabling autonomy on something that
-  used to be manual — the backlog is exactly where out-of-band handling
-  has had time to accumulate.
+  (phone, in person, handed off to a colleague)? You mostly can't observe
+  the event itself, but check for an independent trace it would have left
+  — a status/stage field, a pipeline column, anything that moves off its
+  fresh-record default only when *something* has happened, regardless of
+  what system did it or whether that system logged text anywhere. Gate
+  scripted one-time steps on that too, not only on the bot's own flags.
+  Where no such trace exists, the mitigation is procedural: don't let an
+  autonomous path touch a real backlog thread for the first time without
+  a human confirming per-thread first (draft, show it, get a yes),
+  *especially* right after enabling autonomy on something that used to be
+  manual — the backlog is exactly where out-of-band handling has had time
+  to accumulate. After a bug from this class fires once, sweep the rest
+  of the same backlog batch for the identical combination — it's rarely
+  just the one contact that got the same treatment on the same day.
 - **Does a completely unrelated integration write into the same inbox/
   thread-store your reply agent reads?** Check what else writes there,
   and whether any of it can be self-addressed or otherwise not a genuine
@@ -129,8 +158,11 @@ if sender.id == get_owner_id():
     return
 
 # scripted one-time step — gate on "has anything already covered this",
-# not only on "did I personally ask this":
-if not conn.get("asked_email") and not conn.get("owner_engaged"):
+# not only on "did I personally ask this". A record-level status field
+# is an independent trace of "something already happened" that survives
+# even when the triggering event (a phone call) left no text to log:
+if (not conn.get("asked_email") and not conn.get("owner_engaged")
+        and record_status in ("", "new")):
     ask_email_question()
 
 # canned text — compare against what we actually last sent, not against
