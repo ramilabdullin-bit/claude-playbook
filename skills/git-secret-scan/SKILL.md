@@ -60,11 +60,31 @@ per-clone, per-repo, there is no way to make it travel with the repository
 automatically. When setting up a new project (see `onboard-new-project`),
 install this hook as one of the standard steps, same as `.gitignore`.
 
-**All 8 git repos on this server had this installed on 2026-08-25**
+**Installed on 10 repos as of 2026-08-31** — the original 8 from 2026-08-25
 (`agents`, `leads-agent`, `logistics-agent`, `ozon-agent`,
 `telegram-claude-admin-bot`, `telegram-claude-bot`, `wb-agent`,
-`claude-playbook`) — if a new repo shows up later, it won't have the hook
-until this command is run for it explicitly.
+`claude-playbook`) plus `projects/e-comportal` and
+`projects/3d-print-business`, which the original sweep **missed**.
+
+That miss is the lesson: the 2026-08-25 sweep enumerated repos by grepping
+for repos that *already had the hook*, so repos that never had it were
+invisible to it — a self-confirming check. Enumerate from `find`, then
+report the ones **without** the hook:
+
+```bash
+find /root -maxdepth 5 -type d -name .git 2>/dev/null \
+  | grep -vE '/(venv|node_modules)/' \
+  | while read -r g; do
+      test -x "$(dirname "$g")/.git/hooks/pre-commit" || echo "MISSING: $(dirname "$g")"
+    done
+```
+
+`e-comportal` was the worst one to have missed — it holds live VK/Yandex
+cookies and tokens. (Verified at install time: no `.env` had actually
+leaked into its index, no real-format keys in tracked files.)
+
+Deliberately **not** installed on `/root/.claude/plugins/marketplaces/ponytail`
+— a third-party plugin clone, not our repo, nothing is committed to it.
 
 **The hook is copied, not linked** — editing this skill's
 `pre-commit-secret-scan.sh` does *not* update the 8 installed copies. After
@@ -102,6 +122,16 @@ cd /root && rm -r "$TESTDIR"         # NOT rm -rf — that pattern is in
 - Regex-based — won't catch a secret that doesn't match any of the known
   formats (an internal/custom token scheme, a base64-wrapped value, a
   secret split across multiple lines).
+- **Residual false positive (known, not fixed):** the `key = "16+ chars"`
+  WARN regex can span *across* string-literal boundaries. Real case in
+  `e-comportal/tools/yandex_business.py` line 274 — a line of the shape
+  `if "csrf_token=" in u and "s" in u`, except with a longer gap between
+  the two string literals. The regex reads `token`, then `=`, then the
+  closing quote, and swallows the *code between the two literals* as if it
+  were the value. (Example deliberately shortened above so this very file
+  doesn't trip its own hook — same trick as the fake key further up.)
+  Left alone on purpose: tightening it further risks silencing real
+  findings, and a WARN is a "look at the diff" prompt, not a hard block.
 - Only runs at commit time, not at push time — a secret committed and later
   amended/rebased out locally never reached this check on the intermediate
   commit, but neither did it reach the remote if never pushed. If it *was*
