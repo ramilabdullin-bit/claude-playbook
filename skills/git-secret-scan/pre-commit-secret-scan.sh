@@ -15,6 +15,14 @@ yellow() { printf "\033[33m%s\033[0m\n" "$*" >&2; }
 
 for file in $STAGED; do
   case "$file" in
+    # Шаблоны-образцы — штатные файлы репозитория, в них по определению
+    # плейсхолдеры, а не секреты. По ИМЕНИ не блокируем, но проверки по
+    # СОДЕРЖИМОМУ ниже к ним всё равно применяются: если туда вставят
+    # настоящий ключ, он будет пойман как в любом другом файле.
+    .env.example|.env.sample|.env.template|.env.dist|\
+    */.env.example|*/.env.sample|*/.env.template|*/.env.dist|\
+    .env.*.example|*/.env.*.example)
+      ;;
     .env|.env.*|*/.env|*/.env.*)
       red "BLOCKED: попытка закоммитить $file — секреты не должны попадать в git."
       FAIL=1
@@ -24,7 +32,15 @@ for file in $STAGED; do
 
   diff=$(git diff --cached -- "$file")
 
-  if echo "$diff" | grep -qE '^\+.*(api[_-]?key|secret|password|token|bearer)\s*[:=]\s*["'"'"'][^"'"'"']{16,}' -i; then
+  # Ключ-в-коде. Отсеиваем два класса ложных срабатываний, иначе хук ругается
+  # на любой нормальный код: подстановку переменной (TOKEN="${MPSTATS_TOKEN}",
+  # password: os.environ[...], {{ secret }}) и очевидные плейсхолдеры
+  # (your_token_here, changeme). Слово "example" в отсев НЕ входит — оно
+  # слишком общее и глушило бы настоящие находки.
+  if echo "$diff" \
+      | grep -iE '^\+.*(api[_-]?key|secret|password|token|bearer)\s*[:=]\s*["'"'"'][^"'"'"']{16,}' \
+      | grep -ivE '["'"'"']\s*(\$\{?[A-Za-z_]|\{\{|%\(|<[A-Za-z_]|os\.environ|process\.env|System\.getenv)' \
+      | grep -qivE '(your[_-]|[_-]here\b|placeholder|changeme|change[_-]me|dummy|xxxx|\.\.\.)'; then
     yellow "WARN: в $file похоже на API-ключ/пароль в коде — секреты должны жить в .env, не в коде."
     FAIL=1
   fi

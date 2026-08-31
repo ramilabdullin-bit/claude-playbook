@@ -22,8 +22,20 @@ than tied to one project.
 
 Per staged file, on the **added lines only** (`git diff --cached`):
 - `.env`/`.env.*` staged at all → hard block, no content inspection needed.
+  **Exception (added 2026-08-31):** `.env.example`, `.env.sample`,
+  `.env.template`, `.env.dist` and `.env.<anything>.example` are *not*
+  blocked by name — they are standard repo files that exist precisely to hold
+  placeholders. The content checks below still run on them, so a real key
+  pasted into an `.env.example` is caught exactly like anywhere else
+  (regression-tested).
 - `key/token/secret/password/bearer = "16+ chars"` pattern → warn (could be a
-  placeholder, human judgment call).
+  placeholder, human judgment call). Two false-positive classes are filtered
+  out (also 2026-08-31): **variable substitution** (`TOKEN="${MPSTATS_TOKEN}"`,
+  `password = os.environ[...]`, `secret: "{{ vault_var }}"`, `process.env`,
+  `System.getenv`) and **obvious placeholders** (`your_…`, `…_here`,
+  `placeholder`, `changeme`, `dummy`, `xxxx`). The word `example` is
+  deliberately **not** in that filter — too common, it would silence real
+  findings.
 - Recognizable real-looking key formats — OpenAI (`sk-`), Stripe
   (`sk_live_`), AWS (`AKIA...`), Google (`AIza...`), Slack (`xox...`),
   GitHub (`ghp_...`), Telegram bot tokens (`\d{8,10}:AA...`) → hard block.
@@ -53,6 +65,11 @@ install this hook as one of the standard steps, same as `.gitignore`.
 `telegram-claude-admin-bot`, `telegram-claude-bot`, `wb-agent`,
 `claude-playbook`) — if a new repo shows up later, it won't have the hook
 until this command is run for it explicitly.
+
+**The hook is copied, not linked** — editing this skill's
+`pre-commit-secret-scan.sh` does *not* update the 8 installed copies. After
+changing it, re-run the install command for every repo and verify with
+`md5sum` that they match (done on 2026-08-31 for the false-positive fix).
 
 ## Verify it's active on a repo
 
