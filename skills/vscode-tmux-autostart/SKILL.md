@@ -102,3 +102,66 @@ Useful when moving a *running* conversation into tmux without losing it:
 start `tmux new -d -s main -c <cwd> 'claude --resume <session-id>; exec bash'`,
 then close the old tab. The session id is in the scratchpad path of the
 running session.
+
+## RemoteCommand в ~/.ssh/config ломает Remote-SSH
+
+Привычный для tmux хост:
+
+```
+Host myserver
+    RequestTTY yes
+    RemoteCommand tmux new -A -s main
+```
+
+работает для `ssh myserver`, но VS Code Remote-SSH на нём падает с
+`Resolver error: Error` — без текста причины. Со стороны сервера при этом
+видно `Accepted publickey`, а следом мгновенный disconnect: авторизация
+проходит, спотыкается уже резолвер.
+
+Лечится двумя хостами на один адрес — чистый для VS Code, с
+`RemoteCommand` для ручного `ssh`. Автозапуск tmux в VS Code и так делает
+задача `folderOpen`, так что дублировать его в конфиге незачем.
+
+Второй источник того же `Resolver error` — дубль блока `Host` в конфиге.
+`ssh` берёт первое совпадение и молчит, парсер VS Code — нет. Симптом
+неотличим, так что проверяй на дубли до того, как копать логи.
+
+## Разрывы из-за NAT
+
+Простаивающая SSH-сессия молча выпадает: роутер выкидывает TCP без
+трафика, и ни клиент, ни sshd ничего не пишут в лог — disconnect
+отсутствует с обеих сторон. Признак именно этой причины, а не сетевого
+сбоя.
+
+Обе половины keepalive нужны, одной мало:
+
+```
+# /etc/ssh/sshd_config.d/60-keepalive.conf
+ClientAliveInterval 30
+ClientAliveCountMax 3
+TCPKeepAlive yes
+```
+
+```
+# ~/.ssh/config на клиенте
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+```
+
+Разрыв всё равно не потеря: tmux держит сессию, а в VS Code возврат — клик
+по строке `<folder> [SSH: <host>]` в разделе Recent на стартовом экране,
+она подключается и открывает папку разом.
+
+## Правка конфига на Windows
+
+Блокнот и вставка в PowerShell — главный источник поломок: `config.txt`
+вместо `config`, подставленные плейсхолдеры вроде `C:\Users\ВашеИмя\`,
+дубли блоков от повторной вставки. Надёжнее перезаписать файл целиком
+одной строкой, которую пользователь вставляет правым кликом:
+
+```powershell
+@('Host myserver','    HostName 1.2.3.4','    User root') | Set-Content $env:USERPROFILE\.ssh\config
+```
+
+Если человеку тяжело копировать из терминала агента — отправь команду
+через Telegram-бота: там блок кода копируется одним тапом.
