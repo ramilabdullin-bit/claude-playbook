@@ -87,6 +87,41 @@ tmux list-panes -a -F '#{session_name}: pid=#{pane_pid} cmd=#{pane_current_comma
 `list-clients` is the one that catches the automation-profile bug: several
 clients all pointing at the same session is the signature.
 
+## Window stuck at 80x24, dots around the content
+
+Symptom: the terminal is wide, but the session is drawn in a small box and the
+rest of the screen is filled with `.` characters. Looks like a font or
+resolution problem in VS Code — it is neither.
+
+tmux pads the area outside the window with dots when the window is smaller
+than the client. Two causes, check both:
+
+```bash
+tmux list-clients -F '#{client_tty} #{client_width}x#{client_height} -> #{client_session}'
+tmux list-windows -a -F '#{session_name} #{window_width}x#{window_height}'
+tmux show -t <session> -v window-size          # -> manual is the culprit
+```
+
+- **Several clients on one session.** tmux sizes the window to the *smallest*
+  one, so a forgotten small SSH window shrinks the VS Code tab. Detach the
+  strays: `tmux detach-client -a -t <session>`, or attach with `tmux attach -d`.
+- **`window-size manual` on the session** (global default is `latest`). In
+  manual mode tmux never follows the client, so a session created detached
+  keeps `default-size`, i.e. 80x24, forever. **Running `tmux resize-window`
+  sets `manual` as a side effect** — that is how sessions end up in this state
+  without anyone choosing it.
+
+Fix — drop the session-local option so it inherits the global `latest`:
+
+```bash
+tmux set -u -t <session> window-size
+tmux refresh-client -S
+```
+
+Do NOT "fix" it with `tmux resize-window -A`: that re-arms `manual` and the
+problem comes back on the next resize. Caught 04.09.2026 on three sessions at
+once (`claude2`, `ozon`, `remote`) — window 80x24 inside a 353x35 terminal.
+
 ## What tmux does not survive
 
 A reboot, or `tmux kill-server` — tmux keeps sessions in memory and writes
