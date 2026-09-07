@@ -57,6 +57,29 @@ Command: `tmux new -A -s <name> -c <path> 'claude; exec bash'`.
 what makes a reload reconnect to the *running* agents instead of spawning
 duplicates.
 
+### Check the settings file actually parses — first, not last
+
+`settings.json` without the outer braces is **silently ignored in full**. No
+error banner, no fallback warning — VS Code just behaves as if the file were
+empty, and every profile in it disappears. Found 07.09.2026: the owner had to
+type `tmux attach -t claude2` after every reconnect, and the reason was not a
+wrong profile name but a file VS Code never read.
+
+```bash
+python3 -c "
+import json, re, sys
+s = open(sys.argv[1], encoding='utf-8').read()
+json.loads(re.sub(r'^\s*//.*$', '', s, flags=re.M))   # VS Code allows // comments, json does not
+print('ok')" ~/.vscode-server/data/Machine/settings.json
+```
+
+Run this before debugging profile names, task labels, or anything else. A
+config that does not parse makes every other symptom a red herring.
+
+Second trap from the same case: the profile was named `tmux-claude2` but
+attached to session `claude2-fast`. The profile NAME says nothing about which
+session it joins — read the `args`, not the key.
+
 ### The two settings that make or break it
 
 - **`automationProfile.linux: {"path": "bash"}` — the actual gotcha.**
