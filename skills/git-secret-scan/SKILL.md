@@ -146,3 +146,20 @@ Added the same day (2026-08-25) as this skill: `Bash(rm -rf *)`,
 the same starter template. Different layer — those block dangerous *shell
 commands* regardless of git; this hook blocks dangerous *commit content*
 regardless of command. Keep both, they don't overlap.
+
+## Layer 2: gitleaks via pre-commit (added 2026-09-28)
+
+On top of the regex hook, all 12 repos under /root now run gitleaks v8.30.1
+through the `pre-commit` framework (`apt install pre-commit`, 3.6.2 — pip is
+externally-managed on Ubuntu 24.04; pre-commit bootstraps Go itself, no system
+Go needed, first `install-hooks` ~45 s). `.pre-commit-config.yaml` in each
+repo root; `pre-commit install` runs in migration mode, so an existing regex
+hook is kept as `.git/hooks/pre-commit.legacy` and still runs first.
+
+**Trap:** the textbook test key `AKIA` + `IOSFODNN7EXAMPLE` PASSES gitleaks — its
+aws rule allowlists keys ending in `EXAMPLE`. A "blocked" result with that key
+comes from the legacy regex hook, not gitleaks. Test with a same-format key
+without the suffix, e.g. `AKIA` + `Z3QF7HKXPLM2RT4W` (split here so this file passes its own hook), in a repo without `.legacy`.
+
+Don't run the commit test in a dirty repo other sessions are editing:
+pre-commit briefly stashes unstaged changes during the hook run.
